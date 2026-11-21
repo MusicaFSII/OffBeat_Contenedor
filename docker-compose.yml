@@ -1,0 +1,111 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: offbeat-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    ports:
+      - "3307:3306"   # 3307 afuera para no chocar con un MySQL local
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql-init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - offbeat-net
+
+  usuarios:
+    build: ./OffBeat-BackEnd-Usuarios
+    container_name: OffBeat-BackEnd-Usuarios
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      SERVER_PORT: 8082
+      JWT_SECRET: ${JWT_SECRET} 
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/offbeat_usuarios?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+    ports:
+      - "8082:8082"
+    networks:
+      - offbeat-net
+
+  productos:
+    build: ./OffBeat-BackEnd-Productos
+    container_name: OffBeat-BackEnd-Productos
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      SERVER_PORT: 8081
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/offbeat_productos?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+    volumes:
+      - productos_uploads:/app/uploads
+    ports:
+      - "8081:8081"
+    networks:
+      - offbeat-net
+  
+  blogs:
+    build: ./OffBeat-BackEnd-Blogs
+    container_name: OffBeat-BackEnd-Blogs
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      SERVER_PORT: 8084
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/offbeat_blogs?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+    ports:
+      - "8084:8084"
+    networks:
+      - offbeat-net
+
+  compras:
+    build: ./OffBeat-BackEnd-Compras
+    container_name: OffBeat-BackEnd-Compras
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      usuarios:
+        condition: service_started
+      productos:
+        condition: service_started
+    environment:
+      SERVER_PORT: 8083
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/offbeat_compras?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      # Si compras llama a otros servicios, usa el nombre del servicio, no localhost:
+      USUARIOS_SERVICE_URL: http://usuarios:8082
+      PRODUCTOS_SERVICE_URL: http://productos:8081
+    ports:
+      - "8083:8083"
+    networks:
+      - offbeat-net
+
+volumes:
+  mysql_data:
+  productos_uploads:
+
+networks:
+  offbeat-net:
