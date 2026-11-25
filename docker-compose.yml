@@ -73,6 +73,9 @@ services:
       SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      APP_STORAGE_PATH: /app/uploads/blogs
+    volumes:
+      - blogs_uploads:/app/uploads/blogs
     ports:
       - "8084:8084"
     networks:
@@ -103,9 +106,27 @@ services:
     networks:
       - offbeat-net
 
+  gateway:
+    build: ./OffBeat-Backend-Gateway
+    container_name: OffBeat-Backend-Gateway
+    restart: unless-stopped
+    depends_on:
+      - usuarios
+      - productos
+      - compras
+      - blogs
+    environment:
+      SERVER_PORT: 8080
+      JWT_SECRET: ${JWT_SECRET}
+    ports:
+      - "8080:8080"
+    networks:
+      - offbeat-net
+
 volumes:
   mysql_data:
   productos_uploads:
+  blogs_uploads:
 
 networks:
   offbeat-net:
